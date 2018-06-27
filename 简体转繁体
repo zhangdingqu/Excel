@@ -1,0 +1,51 @@
+@echo off
+rem 指定文件夹路径
+set "fd=C:\Users\dingqu\Desktop\项目一"
+rem 0为转换文件名，1为转换文件夹名，2为同时转换文件名和文件夹名
+set f=0
+
+rem 0为不包括子文件夹，1为包括子文件夹
+set r=1
+rem 2为繁转简，4为简转繁
+set n=4
+set locale=[System.Globalization.Cultureinfo]::CurrentCulture.LCID
+if "%fd:~-1%" equ "\" set "fd=%fd:~,-1%"
+if "%r%" equ "1" (set r=-r) else set "r="
+if "%f%" equ "0" (set "f=$_.PSIsContainer -eq $false") else (
+  if "%f%" equ "1" (set "f=$_.PSIsContainer -eq $true") else set "f=1 -eq 1"
+)
+
+powershell ^
+  \">> %fd%`r`n\"+('-'*45);^
+  $cs='^
+  using System;^
+  using System.Runtime.InteropServices;^
+  public static class ToConvert^
+  {^
+  [DllImport(\"kernel32\", CharSet = CharSet.Unicode, SetLastError = true)]^
+  public static extern int LCMapString(int Locale, int dwMapFlags, string lpSrcStr, int cchSrc, string lpDestStr, int cchDest);^
+  }';^
+  Add-Type -TypeDefinition $cs;^
+  ls -Path '%fd%' %r%^|?{%f%}^|sort {$_.FullName.Length} -des^|^
+  %%{$scr=$_.Name;$len=$scr.Length;$des=' '*$len;^
+  [ToConvert]::LCMapString(%locale%, 0x0%n%000000, $scr, $len, $des, $len)^|out-null;^
+  if($scr -ne $des){^
+  $fd=[IO.Directory]::GetParent($_.FullName).FullName+'\';^
+  $newname=$fd+$des;^
+  $n=0;^
+  while(Test-Path -LiteralPath $newname)^
+  {^
+  $n++;^
+  if($_.PSIsContainer){^
+  $newname=$fd+$des+'_'+$n;^
+  }else{^
+  if($des -match '(.+)(\.[^^\.]+$)'){$tmp=$matches[1]+'_'+$n+$matches[2]}else{$tmp=$des+'_'+$n}^
+  $newname=$fd+$tmp;^
+  }^
+  }^
+  mv -literalpath $_.FullName $newname;^
+  if(Test-Path -LiteralPath $_.FullName){$ts='*转换失败，需手动重命名';}else{$ts=$newname.Split('\')[-1];}^
+  $_.FullName.ToLower().replace('%fd%'.ToLower(),'')+' ==^> '+$ts;^
+  }^
+  }
+pause
