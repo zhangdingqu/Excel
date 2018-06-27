@@ -1,0 +1,5 @@
+dir /s /b /l /aa-s-h-r /tw  *.JPG and *.png >所有图片路径.xlsx
+
+
+
+
